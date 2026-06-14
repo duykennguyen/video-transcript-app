@@ -507,7 +507,11 @@ def lay_loi_thoai():
 
     try:
         if nen_tang == "youtube":
-            toan_bo, ngon_ngu = lay_youtube(link)
+            try:
+                toan_bo, ngon_ngu = lay_youtube(link)
+            except Exception:
+                # YouTube chặn IP cloud → fallback sang yt-dlp
+                toan_bo, ngon_ngu = lay_khac(link)
         else:
             toan_bo, ngon_ngu = lay_khac(link)
 
