@@ -17,6 +17,19 @@ FFMPEG_ARGS = ["--ffmpeg-location", FFMPEG_DIR] if FFMPEG_DIR else []
 
 sys.stdout.reconfigure(encoding="utf-8")
 
+# Cookie YouTube: đọc từ biến môi trường YOUTUBE_COOKIES (dùng trên Render)
+# Giúp yt-dlp vượt qua chặn IP của cloud server
+import atexit
+_COOKIE_FILE = None
+_cookie_content = os.environ.get("YOUTUBE_COOKIES", "").strip()
+if _cookie_content:
+    _f = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
+    _f.write(_cookie_content)
+    _f.close()
+    _COOKIE_FILE = _f.name
+    atexit.register(lambda: os.path.exists(_COOKIE_FILE) and os.unlink(_COOKIE_FILE))
+COOKIE_ARGS = ["--cookies", _COOKIE_FILE] if _COOKIE_FILE else []
+
 from flask import Flask, request, jsonify, send_from_directory
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
 
@@ -75,6 +88,7 @@ def lay_phu_de_ytdlp(link, thu_muc):
         "--skip-download",
         "--impersonate", "chrome",
         *FFMPEG_ARGS,
+        *COOKIE_ARGS,
         "--output", os.path.join(thu_muc, "sub"),
         link,
     ]
@@ -113,6 +127,7 @@ def lay_audio_va_phan_tich(link, thu_muc):
         "-x", "--audio-format", "mp3",
         "--impersonate", "chrome",
         *FFMPEG_ARGS,
+        *COOKIE_ARGS,
         "--output", duong_dan_audio,
         link,
     ]
