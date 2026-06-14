@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: video-transcript-app
+    env: python
+    buildCommand: apt-get install -y ffmpeg && pip install -r requirements.txt
+    startCommand: gunicorn --chdir webapp app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1
+    plan: free
+    envVars:
+      - key: PYTHONUTF8
+        value: "1"

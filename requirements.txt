@@ -1,0 +1,7 @@
+flask
+gunicorn
+youtube-transcript-api==1.2.4
+yt-dlp
+faster-whisper
+curl_cffi
+deep-translator

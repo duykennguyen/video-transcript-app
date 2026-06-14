@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lấy lời thoại Video</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117; color: #e0e0e0;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; padding: 40px 16px 80px;
+    }
+    header { text-align: center; margin-bottom: 32px; }
+    header h1 {
+      font-size: 2rem; font-weight: 700;
+      background: linear-gradient(90deg,#a78bfa,#60a5fa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    header p { color: #888; margin-top: 8px; font-size: 0.95rem; }
+
+    .card {
+      background: #1a1a2e; border: 1px solid #2a2a3a;
+      border-radius: 14px; padding: 28px;
+      width: 100%; max-width: 800px; margin-bottom: 20px;
+    }
+
+    .input-row { display: flex; gap: 10px; }
+    input[type="text"] {
+      flex: 1; background: #0f1117; border: 1px solid #3a3a4a;
+      border-radius: 8px; color: #e0e0e0; font-size: 0.95rem;
+      padding: 12px 16px; outline: none; transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: #a78bfa; }
+    input::placeholder { color: #555; }
+
+    .btn-primary {
+      background: linear-gradient(135deg,#7c3aed,#3b82f6);
+      border: none; border-radius: 8px; color: white;
+      cursor: pointer; font-size: 0.95rem; font-weight: 600;
+      padding: 12px 22px; white-space: nowrap; transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .loader { display: none; text-align: center; padding: 20px 0 4px; color: #888; font-size: 0.9rem; }
+    .spinner {
+      width: 28px; height: 28px; border: 3px solid #333; border-top-color: #a78bfa;
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      display: none; background: #2a1a1a; border: 1px solid #7f1d1d;
+      border-radius: 8px; color: #fca5a5; font-size: 0.9rem;
+      margin-top: 16px; padding: 12px 16px;
+    }
+
+    .result-section { display: none; margin-top: 24px; }
+    .meta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .meta-chip {
+      background: #0f1117; border: 1px solid #2a2a3a;
+      border-radius: 20px; color: #aaa; font-size: 0.8rem; padding: 4px 12px;
+    }
+    .meta-chip span { color: #a78bfa; font-weight: 600; }
+
+    /* ── TABS ────────────────────────────── */
+    .tab-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+    .tab-btn {
+      background: #0f1117; border: 1px solid #2a2a3a;
+      border-radius: 8px; color: #888; cursor: pointer;
+      font-size: 0.85rem; font-weight: 600; padding: 8px 14px;
+      transition: all 0.15s;
+    }
+    .tab-btn.active { background: #2a1f4a; border-color: #a78bfa; color: #a78bfa; }
+    .tab-btn:hover:not(.active) { color: #ccc; border-color: #444; }
+
+    /* ── TRANSCRIPT ─────────────────────── */
+    .transcript-box {
+      background: #0f1117; border: 1px solid #2a2a3a;
+      border-radius: 10px; padding: 20px;
+      font-size: 0.92rem; line-height: 1.8;
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 520px; overflow-y: auto; color: #ddd;
+    }
+    .transcript-box::-webkit-scrollbar { width: 6px; }
+    .transcript-box::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    /* ── SUMMARY ─────────────────────────── */
+    .summary-box {
+      display: none; background: #0f1117; border: 1px solid #2a2a3a;
+      border-radius: 10px; padding: 22px;
+      font-size: 0.93rem; line-height: 1.85;
+      max-height: 600px; overflow-y: auto; color: #ddd;
+    }
+    .summary-box::-webkit-scrollbar { width: 6px; }
+    .summary-box::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    .summary-box h2 { color: #a78bfa; font-size: 1rem; margin: 16px 0 8px; }
+    .summary-box h2:first-child { margin-top: 0; }
+    .summary-box strong { color: #60a5fa; }
+    .summary-box ul { padding-left: 20px; margin: 6px 0; }
+    .summary-box li { margin-bottom: 5px; }
+
+    /* ── VIRAL ───────────────────────────── */
+    .viral-score-card {
+      border-radius: 14px; padding: 24px; margin-bottom: 20px; text-align: center;
+    }
+    .viral-score-card.high { background: #14532d22; border: 1px solid #16a34a; }
+    .viral-score-card.mid  { background: #78350f22; border: 1px solid #d97706; }
+    .viral-score-card.low  { background: #1e3a5f22; border: 1px solid #3b82f6; }
+    .viral-score-card.dead { background: #1f172722; border: 1px solid #666; }
+    .viral-big-score { font-size: 3.5rem; font-weight: 800; line-height: 1; }
+    .viral-score-card.high .viral-big-score { color: #4ade80; }
+    .viral-score-card.mid  .viral-big-score { color: #fbbf24; }
+    .viral-score-card.low  .viral-big-score { color: #60a5fa; }
+    .viral-score-card.dead .viral-big-score { color: #888; }
+    .viral-label { font-size: 1.15rem; font-weight: 700; margin: 8px 0 6px; }
+    .viral-desc  { font-size: 0.88rem; color: #aaa; max-width: 500px; margin: 0 auto; }
+
+    .hook-preview {
+      background: #0f1117; border-left: 3px solid #a78bfa;
+      border-radius: 0 8px 8px 0; padding: 12px 16px;
+      font-size: 0.88rem; color: #ccc; font-style: italic;
+      margin-bottom: 20px; line-height: 1.6;
+    }
+    .hook-preview strong { color: #a78bfa; font-style: normal; }
+
+    .viral-factor {
+      background: #0f1117; border: 1px solid #2a2a3a;
+      border-radius: 10px; padding: 16px 18px; margin-bottom: 12px;
+    }
+    .factor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .factor-name   { font-size: 0.95rem; font-weight: 700; }
+    .factor-meta   { font-size: 0.78rem; color: #666; }
+    .factor-score-num { font-size: 0.88rem; font-weight: 700; }
+    .progress-track { background: #1a1a2e; border-radius: 99px; height: 8px; overflow: hidden; margin-bottom: 10px; }
+    .progress-bar { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+    .progress-bar.high { background: linear-gradient(90deg,#16a34a,#4ade80); }
+    .progress-bar.mid  { background: linear-gradient(90deg,#b45309,#fbbf24); }
+    .progress-bar.low  { background: linear-gradient(90deg,#1d4ed8,#60a5fa); }
+    .factor-notes { list-style: none; }
+    .factor-notes li { font-size: 0.84rem; color: #aaa; padding: 3px 0; line-height: 1.5; }
+
+    /* ── GỢI Ý VIRAL ─────────────────────── */
+    .goi-y-card {
+      background: #0f1117; border: 1px solid #2a2a3a;
+      border-radius: 10px; padding: 18px; margin-bottom: 14px;
+    }
+    .goi-y-card .van-de {
+      font-size: 0.95rem; font-weight: 700; color: #fb923c;
+      margin-bottom: 12px; padding-bottom: 10px;
+      border-bottom: 1px solid #2a2a3a;
+    }
+    .goi-y-card .cach-sua-item {
+      display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start;
+    }
+    .goi-y-card .num {
+      background: #a78bfa22; border: 1px solid #a78bfa55;
+      border-radius: 6px; color: #a78bfa;
+      font-size: 0.78rem; font-weight: 700;
+      min-width: 24px; height: 24px; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+    }
+    .goi-y-card .cach-sua-text {
+      font-size: 0.88rem; color: #ccc; line-height: 1.6;
+    }
+    .goi-y-card .cach-sua-text em {
+      color: #60a5fa; font-style: italic;
+    }
+
+    /* ── TỪ KHÓA ─────────────────────────── */
+    .kw-section { margin-bottom: 20px; }
+    .kw-section h3 { font-size: 0.9rem; color: #888; margin-bottom: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .kw-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kw-chip {
+      border-radius: 99px; font-size: 0.82rem; font-weight: 600;
+      padding: 5px 13px; cursor: default; transition: opacity 0.15s;
+    }
+    .kw-chip:hover { opacity: 0.75; }
+    .kw-chip.rank-1 { background: #7c3aed33; border: 1px solid #7c3aed; color: #c4b5fd; font-size: 1rem; }
+    .kw-chip.rank-2 { background: #1d4ed833; border: 1px solid #3b82f6; color: #93c5fd; font-size: 0.9rem; }
+    .kw-chip.rank-3 { background: #0f766e33; border: 1px solid #0d9488; color: #5eead4; }
+    .kw-chip.rank-4 { background: #1a1a2e; border: 1px solid #2a2a3a; color: #888; }
+    .kw-chip.bigram { background: #78350f22; border: 1px solid #d97706; color: #fbbf24; }
+    .hashtag-box {
+      background: #0f1117; border: 1px solid #2a2a3a;
+      border-radius: 10px; padding: 16px;
+      font-size: 0.88rem; line-height: 2; color: #60a5fa;
+      word-break: break-word;
+    }
+    .hashtag-item { display: inline-block; margin: 2px 4px; cursor: pointer; }
+    .hashtag-item:hover { color: #a78bfa; }
+
+    /* ── DỊCH ────────────────────────────── */
+    .lang-row { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+    .lang-row label { color: #888; font-size: 0.88rem; white-space: nowrap; }
+    .lang-select {
+      background: #0f1117; border: 1px solid #3a3a4a; border-radius: 8px;
+      color: #e0e0e0; font-size: 0.9rem; padding: 9px 14px; outline: none;
+    }
+    .lang-select:focus { border-color: #a78bfa; }
+
+    /* ── BUTTONS ─────────────────────────── */
+    .action-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .btn-action {
+      border-radius: 8px; cursor: pointer; font-size: 0.88rem; font-weight: 600;
+      padding: 9px 18px; transition: opacity 0.2s; border: none;
+    }
+    .btn-action:hover { opacity: 0.8; }
+    .btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-run  { background: linear-gradient(135deg,#065f46,#0891b2); color: white; }
+    .btn-copy { background: #2a2a3a; border: 1px solid #3a3a4a; color: #ccc; }
+    .btn-dl   { background: #14532d; border: 1px solid #166534; color: #86efac; }
+    .btn-viral-run { background: linear-gradient(135deg,#7f1d1d,#b45309); color: white; }
+    .btn-goi-y-run { background: linear-gradient(135deg,#312e81,#6d28d9); color: white; }
+    .btn-kw-run    { background: linear-gradient(135deg,#134e4a,#047857); color: white; }
+    .btn-dich-run  { background: linear-gradient(135deg,#1e3a5f,#1d4ed8); color: white; }
+
+    .panel-loader {
+      display: none; text-align: center; padding: 24px; color: #888; font-size: 0.9rem;
+    }
+    .info-banner {
+      background: #0f1117; border: 1px solid #2a2a3a; border-radius: 8px;
+      padding: 12px 16px; margin-bottom: 12px; font-size: 0.85rem; color: #888; line-height: 1.6;
+    }
+
+    footer { margin-top: 32px; color: #444; font-size: 0.8rem; text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎬 Lấy lời thoại Video</h1>
+  <p>Hỗ trợ <strong style="color:#a78bfa">YouTube</strong> · <strong style="color:#60a5fa">YouTube Shorts</strong> · <strong style="color:#f472b6">TikTok</strong> · <strong style="color:#fb923c">Facebook Reels</strong></p>
+</header>
+
+<div class="card">
+  <div class="input-row">
+    <input type="text" id="linkInput" placeholder="Dán link YouTube / TikTok / Facebook..." autocomplete="off" />
+    <button class="btn-primary" id="btnLay" onclick="layLoiThoai()">Lấy lời thoại</button>
+  </div>
+  <div class="loader" id="loader"><div class="spinner"></div>Đang tải phụ đề...</div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="result-section" id="resultSection">
+    <div class="meta-row" id="metaRow"></div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabTranscript" onclick="doiTab('transcript')">📄 Lời thoại</button>
+      <button class="tab-btn" id="tabSummary"    onclick="doiTab('summary')">🧠 Tóm tắt</button>
+      <button class="tab-btn" id="tabViral"      onclick="doiTab('viral')">🔥 Viral</button>
+      <button class="tab-btn" id="tabGoiY"       onclick="doiTab('goiY')">💡 Gợi ý cải thiện</button>
+      <button class="tab-btn" id="tabKeyword"    onclick="doiTab('keyword')">🔑 Từ khóa</button>
+      <button class="tab-btn" id="tabTranslate"  onclick="doiTab('translate')">🌐 Dịch</button>
+    </div>
+
+    <!-- ─── TAB: LỜI THOẠI ─────────────────── -->
+    <div id="panelTranscript">
+      <div class="transcript-box" id="transcriptBox"></div>
+      <div class="action-row">
+        <button class="btn-action btn-copy" onclick="saoChep('transcript')">📋 Sao chép</button>
+        <button class="btn-action btn-dl"   onclick="taiXuong('transcript')">⬇️ Tải .txt</button>
+      </div>
+    </div>
+
+    <!-- ─── TAB: TÓM TẮT ──────────────────── -->
+    <div style="display:none" id="panelSummary">
+      <div class="info-banner">⚡ Tóm tắt <strong style="color:#4ade80">hoàn toàn miễn phí</strong> — chạy trên máy, không cần API.</div>
+      <div class="action-row" style="margin-bottom:14px">
+        <button class="btn-action btn-run" id="btnTomTat" onclick="tomTat()">✨ Tóm tắt ngay</button>
+      </div>
+      <div class="panel-loader" id="summaryLoader"><div class="spinner"></div>Đang phân tích...</div>
+      <div class="summary-box" id="summaryBox"></div>
+      <div class="action-row" id="summaryActions" style="display:none">
+        <button class="btn-action btn-copy" onclick="saoChep('summary')">📋 Sao chép</button>
+        <button class="btn-action btn-dl"   onclick="taiXuong('summary')">⬇️ Tải .txt</button>
+      </div>
+    </div>
+
+    <!-- ─── TAB: VIRAL ────────────────────── -->
+    <div style="display:none" id="panelViral">
+      <div class="info-banner">🔥 Chấm điểm <strong style="color:#fb923c">5 yếu tố viral</strong> từ nội dung lời thoại.</div>
+      <div class="action-row" style="margin-bottom:14px">
+        <button class="btn-action btn-viral-run" id="btnViral" onclick="phanTichViral()">🔥 Phân tích Viral</button>
+      </div>
+      <div class="panel-loader" id="viralLoader"><div class="spinner"></div>Đang phân tích...</div>
+      <div style="display:none" id="viralResult"></div>
+    </div>
+
+    <!-- ─── TAB: GỢI Ý CẢI THIỆN ─────────── -->
+    <div style="display:none" id="panelGoiY">
+      <div class="info-banner">💡 Dựa vào điểm viral, đưa ra <strong style="color:#c4b5fd">gợi ý cụ thể</strong> để cải thiện nội dung video.</div>
+      <div class="action-row" style="margin-bottom:14px">
+        <button class="btn-action btn-goi-y-run" id="btnGoiY" onclick="goiYViral()">💡 Gợi ý cải thiện ngay</button>
+      </div>
+      <div class="panel-loader" id="goiYLoader"><div class="spinner"></div>Đang phân tích...</div>
+      <div style="display:none" id="goiYResult"></div>
+    </div>
+
+    <!-- ─── TAB: TỪ KHÓA ─────────────────── -->
+    <div style="display:none" id="panelKeyword">
+      <div class="info-banner">🔑 Trích xuất <strong style="color:#4ade80">từ khóa & hashtag</strong> tự động từ lời thoại video.</div>
+      <div class="action-row" style="margin-bottom:14px">
+        <button class="btn-action btn-kw-run" id="btnKw" onclick="tuKhoa()">🔑 Trích xuất từ khóa</button>
+      </div>
+      <div class="panel-loader" id="kwLoader"><div class="spinner"></div>Đang xử lý...</div>
+      <div style="display:none" id="kwResult"></div>
+    </div>
+
+    <!-- ─── TAB: DỊCH ─────────────────────── -->
+    <div style="display:none" id="panelTranslate">
+      <div class="info-banner">🌐 Dịch lời thoại sang ngôn ngữ khác — dùng Google Translate, <strong style="color:#4ade80">miễn phí</strong>.</div>
+      <div class="lang-row">
+        <label>Dịch sang:</label>
+        <select class="lang-select" id="langSelect">
+          <option value="en">🇬🇧 Tiếng Anh</option>
+          <option value="vi">🇻🇳 Tiếng Việt</option>
+          <option value="zh-CN">🇨🇳 Tiếng Trung</option>
+          <option value="ja">🇯🇵 Tiếng Nhật</option>
+          <option value="ko">🇰🇷 Tiếng Hàn</option>
+          <option value="fr">🇫🇷 Tiếng Pháp</option>
+          <option value="de">🇩🇪 Tiếng Đức</option>
+          <option value="es">🇪🇸 Tiếng Tây Ban Nha</option>
+          <option value="th">🇹🇭 Tiếng Thái</option>
+        </select>
+        <button class="btn-action btn-dich-run" id="btnDich" onclick="dichVanBan()">🌐 Dịch ngay</button>
+      </div>
+      <div class="panel-loader" id="dichLoader"><div class="spinner"></div>Đang dịch... (có thể mất 10-30 giây tuỳ độ dài)</div>
+      <div class="transcript-box" id="dichBox" style="display:none"></div>
+      <div class="action-row" id="dichActions" style="display:none">
+        <button class="btn-action btn-copy" onclick="saoChep('dich')">📋 Sao chép bản dịch</button>
+        <button class="btn-action btn-dl"   onclick="taiXuong('dich')">⬇️ Tải .txt</button>
+      </div>
+    </div>
+
+  </div><!-- /result-section -->
+</div>
+
+<footer>Chạy trên máy tính của bạn · Không lưu dữ liệu · Hoàn toàn miễn phí</footer>
+
+<script>
+  // ── State ────────────────────────────────
+  let vanBanHienTai  = "";
+  let tomTatHienTai  = "";
+  let viralTextHienTai = "";
+  let kwTextHienTai  = "";
+  let dichTextHienTai= "";
+  let nenTangHienTai = "";
+  let videoIdHienTai = "";
+
+  // ── Tab ──────────────────────────────────
+  const ALL_TABS = ["Transcript","Summary","Viral","GoiY","Keyword","Translate"];
+  function doiTab(tab) {
+    ALL_TABS.forEach(t => {
+      const panel = document.getElementById("panel" + t);
+      const btn   = document.getElementById("tab"   + t);
+      if (panel) panel.style.display = t.toLowerCase() === tab.toLowerCase() ? "block" : "none";
+      if (btn)   btn.className = "tab-btn" + (t.toLowerCase() === tab.toLowerCase() ? " active" : "");
+    });
+  }
+
+  // ── Enter key ───────────────────────────
+  document.getElementById("linkInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") layLoiThoai();
+  });
+
+  // ── LẤY LỜI THOẠI ───────────────────────
+  async function layLoiThoai() {
+    const link = document.getElementById("linkInput").value.trim();
+    if (!link) return;
+    const btn = document.getElementById("btnLay");
+    const loader = document.getElementById("loader");
+    const errorBox = document.getElementById("errorBox");
+    const resultSection = document.getElementById("resultSection");
+
+    btn.disabled = true;
+    loader.style.display = "block";
+    errorBox.style.display = "none";
+    resultSection.style.display = "none";
+    doiTab("transcript");
+
+    try {
+      const res  = await fetch("/lay-loi-thoai", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ link }),
+      });
+      const data = await res.json();
+      if (data.loi) {
+        showError(data.loi);
+      } else {
+        vanBanHienTai    = data.van_ban;
+        nenTangHienTai   = data.nen_tang;
+        videoIdHienTai   = data.video_id || "video";
+        tomTatHienTai    = ""; viralTextHienTai = "";
+        kwTextHienTai    = ""; dichTextHienTai  = "";
+
+        const icon = {youtube:"▶️ YouTube", tiktok:"🎵 TikTok", facebook:"📘 Facebook"}[data.nen_tang] || data.nen_tang;
+        document.getElementById("metaRow").innerHTML = `
+          <div class="meta-chip">Nguồn: <span>${icon}</span></div>
+          <div class="meta-chip">Ngôn ngữ: <span>${data.ngon_ngu}</span></div>
+          <div class="meta-chip">Số ký tự: <span>${data.so_ki_tu.toLocaleString()}</span></div>
+          <div class="meta-chip">Số đoạn: <span>${data.so_doan}</span></div>
+        `;
+        document.getElementById("transcriptBox").textContent = data.van_ban;
+        // Reset các panel
+        ["summaryBox","viralResult","goiYResult","kwResult","dichBox"].forEach(id => {
+          const el = document.getElementById(id);
+          el.style.display = "none"; el.innerHTML = "";
+        });
+        document.getElementById("summaryActions").style.display = "none";
+        document.getElementById("dichActions").style.display    = "none";
+        resultSection.style.display = "block";
+      }
+    } catch { showError("Không thể kết nối máy chủ. Hãy chắc chắn server đang chạy."); }
+    finally { btn.disabled = false; loader.style.display = "none"; }
+  }
+
+  // ── TÓM TẮT ─────────────────────────────
+  async function tomTat() {
+    if (!vanBanHienTai) return;
+    const btn = document.getElementById("btnTomTat");
+    const ldr = document.getElementById("summaryLoader");
+    const box = document.getElementById("summaryBox");
+    const act = document.getElementById("summaryActions");
+    btn.disabled = true; ldr.style.display = "block";
+    box.style.display = "none"; act.style.display = "none";
+    try {
+      const data = await post("/tom-tat", { van_ban: vanBanHienTai });
+      if (data.loi) { showError(data.loi); return; }
+      tomTatHienTai = data.tom_tat;
+      box.innerHTML = renderMarkdown(data.tom_tat);
+      box.style.display = "block"; act.style.display = "flex";
+    } catch { showError("Lỗi kết nối."); }
+    finally { btn.disabled = false; ldr.style.display = "none"; }
+  }
+
+  // ── PHÂN TÍCH VIRAL ──────────────────────
+  async function phanTichViral() {
+    if (!vanBanHienTai) return;
+    const btn = document.getElementById("btnViral");
+    const ldr = document.getElementById("viralLoader");
+    const res = document.getElementById("viralResult");
+    btn.disabled = true; ldr.style.display = "block"; res.style.display = "none";
+    try {
+      const data = await post("/phan-tich-viral", { van_ban: vanBanHienTai, nen_tang: nenTangHienTai });
+      if (data.loi) { showError(data.loi); return; }
+      viralTextHienTai = renderViralText(data);
+      res.innerHTML    = renderViralHTML(data);
+      res.style.display = "block";
+    } catch { showError("Lỗi kết nối."); }
+    finally { btn.disabled = false; ldr.style.display = "none"; }
+  }
+
+  // ── GỢI Ý CẢI THIỆN ─────────────────────
+  async function goiYViral() {
+    if (!vanBanHienTai) return;
+    const btn = document.getElementById("btnGoiY");
+    const ldr = document.getElementById("goiYLoader");
+    const res = document.getElementById("goiYResult");
+    btn.disabled = true; ldr.style.display = "block"; res.style.display = "none";
+    try {
+      const data = await post("/goi-y-viral", { van_ban: vanBanHienTai, nen_tang: nenTangHienTai });
+      if (data.loi) { showError(data.loi); return; }
+      res.innerHTML = renderGoiY(data);
+      res.style.display = "block";
+    } catch { showError("Lỗi kết nối."); }
+    finally { btn.disabled = false; ldr.style.display = "none"; }
+  }
+
+  // ── TỪ KHÓA ─────────────────────────────
+  async function tuKhoa() {
+    if (!vanBanHienTai) return;
+    const btn = document.getElementById("btnKw");
+    const ldr = document.getElementById("kwLoader");
+    const res = document.getElementById("kwResult");
+    btn.disabled = true; ldr.style.display = "block"; res.style.display = "none";
+    try {
+      const data = await post("/tu-khoa", { van_ban: vanBanHienTai });
+      if (data.loi) { showError(data.loi); return; }
+      kwTextHienTai = data.hashtags.join(" ");
+      res.innerHTML = renderKwHTML(data);
+      res.style.display = "block";
+    } catch { showError("Lỗi kết nối."); }
+    finally { btn.disabled = false; ldr.style.display = "none"; }
+  }
+
+  // ── DỊCH ─────────────────────────────────
+  async function dichVanBan() {
+    if (!vanBanHienTai) return;
+    const btn  = document.getElementById("btnDich");
+    const ldr  = document.getElementById("dichLoader");
+    const box  = document.getElementById("dichBox");
+    const act  = document.getElementById("dichActions");
+    const lang = document.getElementById("langSelect").value;
+    btn.disabled = true; ldr.style.display = "block";
+    box.style.display = "none"; act.style.display = "none";
+    try {
+      const data = await post("/dich", { van_ban: vanBanHienTai, ngon_ngu_dich: lang });
+      if (data.loi) { showError(data.loi); return; }
+      dichTextHienTai = data.ban_dich;
+      box.textContent = data.ban_dich;
+      box.style.display = "block"; act.style.display = "flex";
+    } catch { showError("Lỗi kết nối."); }
+    finally { btn.disabled = false; ldr.style.display = "none"; }
+  }
+
+  // ── RENDER HELPERS ───────────────────────
+  function renderViralHTML(d) {
+    const score = d.diem_tong;
+    const tier  = score >= 75 ? "high" : score >= 50 ? "mid" : score >= 25 ? "low" : "dead";
+    let html = `
+      <div class="viral-score-card ${tier}">
+        <div class="viral-big-score">${score}<span style="font-size:1.5rem">/100</span></div>
+        <div class="viral-label">${d.nhan_dinh}</div>
+        <div class="viral-desc">${d.mo_ta}</div>
+      </div>`;
+    if (d.hook_text)
+      html += `<div class="hook-preview"><strong>📌 10 giây đầu video:</strong><br>"${esc(d.hook_text)}"</div>`;
+    d.cac_yeu_to.forEach(y => {
+      const s = y.diem;
+      const bt = s >= 60 ? "high" : s >= 30 ? "mid" : "low";
+      const cl = s >= 60 ? "#4ade80" : s >= 30 ? "#fbbf24" : "#60a5fa";
+      html += `
+        <div class="viral-factor">
+          <div class="factor-header">
+            <span class="factor-name">${esc(y.ten)}</span>
+            <span class="factor-meta">Trọng số ${y.trong_so} &nbsp;·&nbsp;
+              <span class="factor-score-num" style="color:${cl}">${s}/100</span></span>
+          </div>
+          <div class="progress-track"><div class="progress-bar ${bt}" style="width:${s}%"></div></div>
+          <ul class="factor-notes">${y.nhan_xet.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>
+        </div>`;
+    });
+    html += `<div class="action-row">
+      <button class="btn-action btn-copy" onclick="saoChep('viral')">📋 Sao chép</button>
+      <button class="btn-action btn-dl"   onclick="taiXuong('viral')">⬇️ Tải .txt</button>
+    </div>`;
+    return html;
+  }
+
+  function renderGoiY(d) {
+    if (!d.goi_y || d.goi_y.length === 0)
+      return `<div class="info-banner">✅ Không có gợi ý đặc biệt.</div>`;
+    let html = `<div class="info-banner" style="margin-bottom:20px">
+      📊 Điểm viral hiện tại: <strong style="color:#fbbf24">${d.diem_tong}/100</strong>
+      — Dưới đây là các cách cải thiện cụ thể:</div>`;
+    d.goi_y.forEach(g => {
+      const items = g.cach_sua.map((c,i) => `
+        <div class="cach-sua-item">
+          <span class="num">${i+1}</span>
+          <span class="cach-sua-text">${esc(c).replace(/&quot;([^&]+)&quot;/g, '<em>"$1"</em>')}</span>
+        </div>`).join("");
+      html += `<div class="goi-y-card">
+        <div class="van-de">${esc(g.van_de)}</div>
+        ${items}
+      </div>`;
+    });
+    return html;
+  }
+
+  function renderKwHTML(d) {
+    const rankClass = i => i < 3 ? "rank-1" : i < 8 ? "rank-2" : i < 15 ? "rank-3" : "rank-4";
+    const chips = d.tu_khoa_don.map((k,i) =>
+      `<span class="kw-chip ${rankClass(i)}" title="${k.so_lan} lần">${esc(k.tu)}</span>`
+    ).join("");
+    const bigrams = d.tu_khoa_cum.map(k =>
+      `<span class="kw-chip bigram" title="${k.so_lan} lần">${esc(k.tu)}</span>`
+    ).join("");
+    const htags = d.hashtags.map(h =>
+      `<span class="hashtag-item" onclick="navigator.clipboard.writeText('${h}')" title="Click để sao chép">${esc(h)}</span>`
+    ).join(" ");
+
+    let html = `<div class="kw-section">
+      <h3>☁️ Từ khóa đơn (size = mức độ quan trọng)</h3>
+      <div class="kw-cloud">${chips}</div>
+    </div>`;
+    if (bigrams) html += `<div class="kw-section">
+      <h3>🔗 Cụm từ nổi bật</h3>
+      <div class="kw-cloud">${bigrams}</div>
+    </div>`;
+    html += `<div class="kw-section">
+      <h3>🏷️ Gợi ý Hashtag (click để sao chép từng cái)</h3>
+      <div class="hashtag-box">${htags}</div>
+    </div>
+    <div class="action-row">
+      <button class="btn-action btn-copy" onclick="saoChep('kw')">📋 Sao chép tất cả hashtag</button>
+      <button class="btn-action btn-dl"   onclick="taiXuong('kw')">⬇️ Tải .txt</button>
+    </div>`;
+    return html;
+  }
+
+  function renderViralText(d) {
+    let t = `PHÂN TÍCH VIRAL — ${d.diem_tong}/100\n${d.nhan_dinh}\n${d.mo_ta}\n\n`;
+    t += `10 GIÂY ĐẦU:\n"${d.hook_text}"\n\n`;
+    d.cac_yeu_to.forEach(y => {
+      t += `${y.ten} (${y.trong_so}): ${y.diem}/100\n`;
+      y.nhan_xet.forEach(n => t += `  ${n}\n`); t += "\n";
+    });
+    return t;
+  }
+
+  function renderMarkdown(text) {
+    return text
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/^## (.+)$/gm,"<h2>$1</h2>")
+      .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+      .replace(/^- (.+)$/gm,"<li>$1</li>")
+      .replace(/(<li>.*<\/li>)/gs,"<ul>$1</ul>")
+      .replace(/\n\n/g,"<br><br>").replace(/\n/g,"<br>");
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // ── COPY / DOWNLOAD ──────────────────────
+  function saoChep(loai) {
+    const map = { transcript: vanBanHienTai, summary: tomTatHienTai,
+                  viral: viralTextHienTai, kw: kwTextHienTai, dich: dichTextHienTai };
+    navigator.clipboard.writeText(map[loai] || "").then(() => {
+      const btns = document.querySelectorAll(".btn-copy");
+      btns.forEach(b => {
+        if (b.getAttribute("onclick") && b.getAttribute("onclick").includes(`'${loai}'`)) {
+          const orig = b.textContent;
+          b.textContent = "✅ Đã sao chép!";
+          setTimeout(() => b.textContent = orig, 2000);
+        }
+      });
+    });
+  }
+
+  function taiXuong(loai) {
+    const map = { transcript: vanBanHienTai, summary: tomTatHienTai,
+                  viral: viralTextHienTai, kw: kwTextHienTai, dich: dichTextHienTai };
+    const blob = new Blob([map[loai] || ""], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${loai}_${videoIdHienTai}.txt`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── UTILS ─────────────────────────────────
+  function showError(msg) {
+    const eb = document.getElementById("errorBox");
+    eb.textContent = "⚠️ " + msg; eb.style.display = "block";
+  }
+  async function post(url, body) {
+    const res = await fetch(url, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+</script>
+</body>
+</html>
